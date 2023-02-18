@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, EXPECTED_STATUS, MAIN_PEP_URL, MAIN_DOC_URL
+from constants import BASE_DIR, EXPECTED_STATUS, MAIN_DOC_URL, MAIN_PEP_URL
 from outputs import control_output
 from utils import find_tag, get_response
 
@@ -22,7 +22,9 @@ def whats_new(session):
     soup = BeautifulSoup(response.text, features='lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li', attrs={'class': 'toctree-l1'})
+    sections_by_python = div_with_ul.find_all(
+        'li', attrs={'class': 'toctree-l1'}
+    )
 
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
 
@@ -51,14 +53,14 @@ def latest_versions(session):
     soup = BeautifulSoup(response.text, features='lxml')
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar.find_all('ul')
-    
+
     for ul in ul_tags:
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
     else:
         raise Exception('Ничего не нашлось')
-    
+
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
 
@@ -71,7 +73,7 @@ def latest_versions(session):
             version = a_tag.text
             status = ''
         results.append((link, version, status))
-    
+
     return results
 
 
@@ -84,7 +86,9 @@ def download(session):
 
     soup = BeautifulSoup(response.text, features='lxml')
     table_tag = find_tag(soup, 'table', attrs={'class': 'docutils'})
-    pdf_a4_tag = table_tag.find('a', attrs={'href': re.compile(r'.+pdf-a4\.zip$')})
+    pdf_a4_tag = table_tag.find(
+        'a', attrs={'href': re.compile(r'.+pdf-a4\.zip$')}
+    )
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
     filename = archive_url.split('/')[-1]
@@ -94,7 +98,7 @@ def download(session):
     archive_path = downloads_dir / filename
 
     response = session.get(archive_url)
-    with open (archive_path, 'wb') as file:
+    with open(archive_path, 'wb') as file:
         file.write(response.content)
 
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
@@ -104,7 +108,7 @@ def pep(session):
     response = get_response(session, MAIN_PEP_URL)
     if response is None:
         return
-    
+
     results = [('Статус', 'Количество')]
     count_results = dict.fromkeys(['A', 'D', 'F', 'P', 'R', 'S', 'W'], 0)
 
@@ -118,8 +122,8 @@ def pep(session):
         pep_link = MAIN_PEP_URL + pep.a['href']
         response = get_response(session, pep_link)
         soup = BeautifulSoup(response.text, features='lxml')
-        status_label = find_tag(soup,
-            'section', {'id': 'pep-content'}
+        status_label = find_tag(
+            soup, 'section', {'id': 'pep-content'}
         ).find_all('dt')
         personal_status = list(
             filter(lambda x: 'Status' in x.text, status_label)
@@ -133,7 +137,7 @@ def pep(session):
                 f'Статус в карточке: {personal_status}\n'
                 f'Ожидаемые статусы: {mainpage_status}'
             )
-    
+
     for status, qty in count_results.items():
         results.append((status, qty))
     results.append(('Total', total))
