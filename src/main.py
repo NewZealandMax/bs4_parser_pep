@@ -110,7 +110,20 @@ def pep(session):
         return
 
     results = [('Статус', 'Количество')]
-    count_results = dict.fromkeys(['A', 'D', 'F', 'P', 'R', 'S', 'W'], 0)
+    count_results = dict.fromkeys(
+        [
+            'Active',
+            'Accepted',
+            'Deferred',
+            'Draft',
+            'Final',
+            'Provisional',
+            'Rejected',
+            'Superseded',
+            'Withdrawn',
+        ],
+        0
+    )
 
     soup = BeautifulSoup(response.text, features='lxml')
     section = find_tag(soup, 'section', {'id': 'numerical-index'})
@@ -118,7 +131,11 @@ def pep(session):
     peps = numerical_table.find_all('tr')
     total = len(peps)
     for pep in tqdm(peps):
-        mainpage_status = EXPECTED_STATUS[pep.find('td').text[1:]]
+        mainpage_sign = pep.find('td').text[1:]
+        if mainpage_sign in EXPECTED_STATUS:
+            mainpage_status = EXPECTED_STATUS[mainpage_sign]
+        else:
+            mainpage_status = 'Undefined'
         pep_link = MAIN_PEP_URL + pep.a['href']
         response = get_response(session, pep_link)
         soup = BeautifulSoup(response.text, features='lxml')
@@ -128,9 +145,8 @@ def pep(session):
         personal_status = list(
             filter(lambda x: 'Status' in x.text, status_label)
         )[0].find_next_sibling('dd').text
-        sign = personal_status[0]
-        if personal_status in EXPECTED_STATUS[sign]:
-            count_results[sign] += 1
+        if personal_status in count_results:
+            count_results[personal_status] += 1
         if personal_status not in mainpage_status:
             logging.info(
                 f'{pep_link}\n'
@@ -138,8 +154,7 @@ def pep(session):
                 f'Ожидаемые статусы: {mainpage_status}'
             )
 
-    for status, qty in count_results.items():
-        results.append((status, qty))
+    results.extend(count_results.items())
     results.append(('Total', total))
     return results
 
